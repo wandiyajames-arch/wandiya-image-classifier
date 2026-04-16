@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wandiya Image Classifier</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+
+        <header>
+            <h1>🌍 Intel Image Classifier</h1>
+            <p>Classify images using PyTorch or TensorFlow CNN</p>
+            <p class="author">By Wandiya</p>
+        </header>
+
+        <div class="card">
+            <!-- Model Selection -->
+            <div class="form-group">
+                <label for="model-select">Select Model:</label>
+                <select id="model-select" class="combo-box">
+                    <option value="pytorch">PyTorch CNN</option>
+                    <option value="tensorflow">TensorFlow CNN</option>
+                </select>
+            </div>
+
+            <!-- Image Upload -->
+            <div class="form-group">
+                <label>Upload Image:</label>
+                <div class="upload-area" id="upload-area">
+                    <input type="file" id="image-input"
+                           accept="image/*" hidden>
+                    <div class="upload-content"
+                         onclick="document.getElementById(
+                         'image-input').click()">
+                        <span class="upload-icon">📁</span>
+                        <p>Click to upload or drag and drop</p>
+                        <p class="upload-hint">PNG, JPG, JPEG supported</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Image Preview -->
+            <div id="preview-container" class="preview-container hidden">
+                <img id="image-preview" src="" alt="Preview">
+            </div>
+
+            <!-- Predict Button -->
+            <button id="predict-btn" class="btn-predict" disabled>
+                🔍 Classify Image
+            </button>
+
+            <!-- Result -->
+            <div id="result-container" class="result-container hidden">
+                <div class="result-card">
+                    <h3>Prediction Result</h3>
+                    <div class="result-label" id="result-label">
+                    </div>
+                    <div class="result-confidence"
+                         id="result-confidence">
+                    </div>
+                    <div class="result-model" id="result-model">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading -->
+            <div id="loading" class="loading hidden">
+                <div class="spinner"></div>
+                <p>Classifying...</p>
+            </div>
+
+            <!-- Error -->
+            <div id="error-msg" class="error hidden"></div>
+        </div>
+
+        <!-- Classes Info -->
+        <div class="classes-info">
+            <h3>Available Classes</h3>
+            <div class="classes-grid">
+                <span class="class-tag">🏢 Buildings</span>
+                <span class="class-tag">🌲 Forest</span>
+                <span class="class-tag">🏔️ Glacier</span>
+                <span class="class-tag">⛰️ Mountain</span>
+                <span class="class-tag">🌊 Sea</span>
+                <span class="class-tag">🏙️ Street</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const imageInput  = document.getElementById("image-input");
+        const predictBtn  = document.getElementById("predict-btn");
+        const preview     = document.getElementById("image-preview");
+        const previewCont = document.getElementById("preview-container");
+        const resultCont  = document.getElementById("result-container");
+        const loading     = document.getElementById("loading");
+        const errorMsg    = document.getElementById("error-msg");
+        const uploadArea  = document.getElementById("upload-area");
+
+        // Drag and drop
+        uploadArea.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            uploadArea.classList.add("drag-over");
+        });
+        uploadArea.addEventListener("dragleave", () => {
+            uploadArea.classList.remove("drag-over");
+        });
+        uploadArea.addEventListener("drop", (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove("drag-over");
+            imageInput.files = e.dataTransfer.files;
+            handleImageSelect();
+        });
+
+        imageInput.addEventListener("change", handleImageSelect);
+
+        function handleImageSelect() {
+            const file = imageInput.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                preview.src = e.target.result;
+                previewCont.classList.remove("hidden");
+                predictBtn.disabled = false;
+                resultCont.classList.add("hidden");
+                errorMsg.classList.add("hidden");
+            };
+            reader.readAsDataURL(file);
+        }
+
+        predictBtn.addEventListener("click", async () => {
+            const file      = imageInput.files[0];
+            const modelType = document.getElementById(
+                              "model-select").value;
+            if (!file) return;
+
+            loading.classList.remove("hidden");
+            resultCont.classList.add("hidden");
+            errorMsg.classList.add("hidden");
+            predictBtn.disabled = true;
+
+            const formData = new FormData();
+            formData.append("image", file);
+            formData.append("model", modelType);
+
+            try {
+                const response = await fetch("/predict", {
+                    method: "POST",
+                    body  : formData
+                });
+                const data = await response.json();
+
+                if (data.error) {
+                    errorMsg.textContent = "Error: " + data.error;
+                    errorMsg.classList.remove("hidden");
+                } else {
+                    document.getElementById("result-label")
+                        .textContent = data.class.charAt(0)
+                        .toUpperCase() + data.class.slice(1);
+                    document.getElementById("result-confidence")
+                        .textContent = "Confidence: " + data.confidence;
+                    document.getElementById("result-model")
+                        .textContent = "Model: " +
+                        data.model.toUpperCase();
+                    resultCont.classList.remove("hidden");
+                }
+            } catch (err) {
+                errorMsg.textContent = "Connection error!";
+                errorMsg.classList.remove("hidden");
+            } finally {
+                loading.classList.add("hidden");
+                predictBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
